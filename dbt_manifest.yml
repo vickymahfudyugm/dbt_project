@@ -1,4 +1,4 @@
- models/staging/stg_customers.sql": |
+ models/staging/stg_customers.sql: |
          
           select
           customerNumber         as customer_id,
@@ -16,7 +16,7 @@
           creditLimit            as credit_limit
           from {{ source('main', 'customers') }}
          
- models/staging/stg_employees.sql": |
+ models/staging/stg_employees.sql: |
          
           select
           employeeNumber as employee_id,
@@ -29,7 +29,7 @@
           jobTitle       as job_title
           from {{ source('main', 'employees') }}
          
- models/staging/stg_offices.sql": |
+ models/staging/stg_offices.sql: |
          
           select
           officeCode   as office_code,
@@ -43,7 +43,7 @@
           territory    as territory
           from {{ source('main', 'offices') }}
          
- models/staging/stg_orderdetails.sql": |
+ models/staging/stg_orderdetails.sql: |
          
           select
           orderNumber     as order_id,
@@ -53,7 +53,7 @@
           orderLineNumber as order_line_number
           from {{ source('main', 'orderdetails') }}
          
- models/staging/stg_orders.sql": |
+ models/staging/stg_orders.sql: |
          
           select
           orderNumber    as order_id,
@@ -65,7 +65,7 @@
           customerNumber as customer_id
           from {{ source('main', 'orders') }}
          
- models/staging/stg_payments.sql": |
+ models/staging/stg_payments.sql: |
          
           select
           customerNumber as customer_id,
@@ -74,7 +74,7 @@
           amount         as amount
           from {{ source('main', 'payments') }}
          
- models/staging/stg_productlines.sql": |
+ models/staging/stg_productlines.sql: |
          
           select
           productLine     as product_line,
@@ -83,7 +83,7 @@
           image           as image
           from {{ source('main', 'productlines') }}
          
- models/staging/stg_products.sql": |
+ models/staging/stg_products.sql: |
          
           select
           productCode        as product_code,
@@ -97,7 +97,7 @@
           MSRP               as msrp
           from {{ source('main', 'products') }}
          
- models/dimensions/dim_customer.sql": |
+ models/dimensions/dim_customer.sql: |
          
           select
               customer_id,
@@ -110,7 +110,7 @@
               credit_limit
           from {{ ref('stg_customers') }}
          
- models/dimensions/dim_product.sql": |
+ models/dimensions/dim_product.sql: |
          
           select
               p.product_code,
@@ -124,7 +124,7 @@
           from {{ ref('stg_products') }} p
           left join {{ ref('stg_productlines') }} pl on p.product_line = pl.product_line
          
- models/dimensions/dim_employee.sql": |
+ models/dimensions/dim_employee.sql: |
          
           select
               employee_id,
@@ -135,7 +135,7 @@
               reports_to
           from {{ ref('stg_employees') }}
          
- models/dimensions/dim_office.sql": |
+ models/dimensions/dim_office.sql: |
          
           select
               office_code,
@@ -145,7 +145,7 @@
               territory
           from {{ ref('stg_offices') }}
          
- models/dimensions/dim_date.sql": |
+ models/dimensions/dim_date.sql: |
          
           select
               distinct(order_date) as date_day,
@@ -155,7 +155,7 @@
               dayofweek(order_date) as day_of_week
           from {{ ref('stg_orders') }}
          
- models/marts/fct_order_lines.sql": |
+ models/marts/fct_order_lines.sql: |
          
           with order_details as (
               select * from {{ ref('stg_orderdetails') }}
@@ -194,7 +194,7 @@
           join stg_customers c on o.customer_id = c.customer_id
           join dim_employee e on c.sales_rep_employee_id = e.employee_id
          
- models/dimensions/dim_customer.sql": |
+ models/dimensions/dim_customer.sql: |
          
           select
               customer_id,
@@ -207,7 +207,7 @@
               credit_limit
           from {{ ref('stg_customers') }}
          
- models/dimensions/dim_date.sql": |
+ models/dimensions/dim_date.sql: |
          
           with all_dates as (
               select order_date as date_day from {{ ref('stg_orders') }}
@@ -222,7 +222,7 @@
               dayname(date_day)  as day_name
           from all_dates
          
- models/marts/fct_payments.sql": |
+ models/marts/fct_payments.sql: |
          
           with payments as (
               select * from {{ ref('stg_payments') }}
@@ -240,7 +240,7 @@
           from payments p
           join dim_customer c on p.customer_id = c.customer_id
          
- models/marts/fct_sales_performance.sql": |
+ models/marts/fct_sales_performance.sql: |
          
           with order_lines as (
               select * from {{ ref('fct_order_lines') }}
