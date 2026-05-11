@@ -1,6 +1,6 @@
 {
   "models/staging/stg_customers.sql":
-          """
+          "
           select
           customerNumber         as customer_id,
           customerName           as customer_name,
@@ -16,9 +16,9 @@
           salesRepEmployeeNumber as sales_rep_employee_id,
           creditLimit            as credit_limit
           from {{ source('main', 'customers') }}
-          """,
+          ",
   "models/staging/stg_employees.sql":
-          """
+          "
           select
           employeeNumber as employee_id,
           lastName       as last_name,
@@ -29,9 +29,9 @@
           reportsTo      as reports_to,
           jobTitle       as job_title
           from {{ source('main', 'employees') }}
-          """,
+          ",
   "models/staging/stg_offices.sql":
-          """
+          "
           select
           officeCode   as office_code,
           city         as city,
@@ -43,9 +43,9 @@
           postalCode   as postal_code,
           territory    as territory
           from {{ source('main', 'offices') }}
-          """,
+          ",
   "models/staging/stg_orderdetails.sql":
-          """
+          "
           select
           orderNumber     as order_id,
           productCode     as product_code,
@@ -53,9 +53,9 @@
           priceEach       as price_each,
           orderLineNumber as order_line_number
           from {{ source('main', 'orderdetails') }}
-          """,
+          ",
   "models/staging/stg_orders.sql":
-          """
+          "
           select
           orderNumber    as order_id,
           orderDate      as order_date,
@@ -65,27 +65,27 @@
           comments       as comments,
           customerNumber as customer_id
           from {{ source('main', 'orders') }}
-          """,
+          ",
   "models/staging/stg_payments.sql":
-          """
+          "
           select
           customerNumber as customer_id,
           checkNumber    as check_number,
           paymentDate    as payment_date,
           amount         as amount
           from {{ source('main', 'payments') }}
-          """,
+          ",
   "models/staging/stg_productlines.sql":
-          """
+          "
           select
           productLine     as product_line,
           textDescription as text_description,
           htmlDescription as html_description,
           image           as image
           from {{ source('main', 'productlines') }}
-          """,
+          ",
   "models/staging/stg_products.sql":
-          """
+          "
           select
           productCode        as product_code,
           productName        as product_name,
@@ -97,9 +97,9 @@
           buyPrice           as buy_price,
           MSRP               as msrp
           from {{ source('main', 'products') }}
-          """,
+          ",
   "models/dimensions/dim_customer.sql":
-          """
+          "
           select
               customer_id,
               customer_name,
@@ -110,9 +110,9 @@
               country,
               credit_limit
           from {{ ref('stg_customers') }}
-          """,
+          ",
   "models/dimensions/dim_product.sql":
-          """
+          "
           select
               p.product_code,
               p.product_name,
@@ -124,9 +124,9 @@
               p.msrp
           from {{ ref('stg_products') }} p
           left join {{ ref('stg_productlines') }} pl on p.product_line = pl.product_line
-          """,
+          ",
   "models/dimensions/dim_employee.sql":
-          """
+          "
           select
               employee_id,
               concat(first_name, ' ', last_name) as full_name,
@@ -135,9 +135,9 @@
               office_code,
               reports_to
           from {{ ref('stg_employees') }}
-          """,
+          ",
   "models/dimensions/dim_office.sql":
-          """
+          "
           select
               office_code,
               city,
@@ -145,9 +145,9 @@
               country,
               territory
           from {{ ref('stg_offices') }}
-          """,
+          ",
   "models/dimensions/dim_date.sql":
-          """
+          "
           -- Sederhananya, kita mengambil unique dates dari tabel orders
           select
               distinct(order_date) as date_day,
@@ -156,9 +156,9 @@
               quarter(order_date)  as quarter,
               dayofweek(order_date) as day_of_week
           from {{ ref('stg_orders') }}
-          """,
+          ",
   "models/marts/fct_order_lines.sql":
-          """
+          "
           with order_details as (
               select * from {{ ref('stg_orderdetails') }}
           ),
@@ -199,9 +199,9 @@
           join dim_product p on od.product_code = p.product_code
           join stg_customers c on o.customer_id = c.customer_id
           join dim_employee e on c.sales_rep_employee_id = e.employee_id
-          """,
+          ",
   "models/dimensions/dim_customer.sql":
-          """
+          "
           -- (Sama seperti sebelumnya, dimensi ini digunakan kembali / shared dimension)
           select
               customer_id,
@@ -213,9 +213,9 @@
               country,
               credit_limit
           from {{ ref('stg_customers') }}
-          """,
+          ",
   "models/dimensions/dim_date.sql":
-          """
+          "
           -- Kita menggabungkan semua tanggal unik baik dari order maupun payment
           -- agar dimensi tanggal mencakup seluruh rentang waktu bisnis
           with all_dates as (
@@ -230,9 +230,9 @@
               quarter(date_day)  as quarter,
               dayname(date_day)  as day_name
           from all_dates
-          """,
+          ",
   "models/marts/fct_payments.sql":
-          """
+          "
           with payments as (
               select * from {{ ref('stg_payments') }}
           ),
@@ -255,9 +255,9 @@
           from payments p
           -- Memastikan hanya pembayaran dari customer yang valid yang masuk ke fact table
           join dim_customer c on p.customer_id = c.customer_id
-          """,
+          ",
   "models/marts/fct_sales_performance.sql":
-          """
+          "
           with order_lines as (
               select * from {{ ref('fct_order_lines') }}
           ),
@@ -304,5 +304,5 @@
               avg_order_line_revenue
 
           from performance_snapshot
-          """
+          "
 }
