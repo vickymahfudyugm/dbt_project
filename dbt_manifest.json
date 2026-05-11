@@ -1,0 +1,308 @@
+{
+  "models/staging/stg_customers.sql":
+          """
+          select
+          customerNumber         as customer_id,
+          customerName           as customer_name,
+          contactLastName        as contact_last_name,
+          contactFirstName       as contact_first_name,
+          phone                  as phone,
+          addressLine1           as address_line_1,
+          addressLine2           as address_line_2,
+          city                   as city,
+          state                  as state,
+          postalCode             as postal_code,
+          country                as country,
+          salesRepEmployeeNumber as sales_rep_employee_id,
+          creditLimit            as credit_limit
+          from {{ source('main', 'customers') }}
+          """,
+  "models/staging/stg_employees.sql":
+          """
+          select
+          employeeNumber as employee_id,
+          lastName       as last_name,
+          firstName      as first_name,
+          extension      as extension,
+          email          as email,
+          officeCode     as office_code,
+          reportsTo      as reports_to,
+          jobTitle       as job_title
+          from {{ source('main', 'employees') }}
+          """,
+  "models/staging/stg_offices.sql":
+          """
+          select
+          officeCode   as office_code,
+          city         as city,
+          phone        as phone,
+          addressLine1 as address_line_1,
+          addressLine2 as address_line_2,
+          state        as state,
+          country      as country,
+          postalCode   as postal_code,
+          territory    as territory
+          from {{ source('main', 'offices') }}
+          """,
+  "models/staging/stg_orderdetails.sql":
+          """
+          select
+          orderNumber     as order_id,
+          productCode     as product_code,
+          quantityOrdered as quantity_ordered,
+          priceEach       as price_each,
+          orderLineNumber as order_line_number
+          from {{ source('main', 'orderdetails') }}
+          """,
+  "models/staging/stg_orders.sql":
+          """
+          select
+          orderNumber    as order_id,
+          orderDate      as order_date,
+          requiredDate   as required_date,
+          shippedDate    as shipped_date,
+          status         as status,
+          comments       as comments,
+          customerNumber as customer_id
+          from {{ source('main', 'orders') }}
+          """,
+  "models/staging/stg_payments.sql":
+          """
+          select
+          customerNumber as customer_id,
+          checkNumber    as check_number,
+          paymentDate    as payment_date,
+          amount         as amount
+          from {{ source('main', 'payments') }}
+          """,
+  "models/staging/stg_productlines.sql":
+          """
+          select
+          productLine     as product_line,
+          textDescription as text_description,
+          htmlDescription as html_description,
+          image           as image
+          from {{ source('main', 'productlines') }}
+          """,
+  "models/staging/stg_products.sql":
+          """
+          select
+          productCode        as product_code,
+          productName        as product_name,
+          productLine        as product_line,
+          productScale       as product_scale,
+          productVendor      as product_vendor,
+          productDescription as product_description,
+          quantityInStock    as quantity_in_stock,
+          buyPrice           as buy_price,
+          MSRP               as msrp
+          from {{ source('main', 'products') }}
+          """,
+  "models/dimensions/dim_customer.sql":
+          """
+          select
+              customer_id,
+              customer_name,
+              contact_last_name,
+              contact_first_name,
+              city,
+              state,
+              country,
+              credit_limit
+          from {{ ref('stg_customers') }}
+          """,
+  "models/dimensions/dim_product.sql":
+          """
+          select
+              p.product_code,
+              p.product_name,
+              p.product_line,
+              pl.text_description as product_line_description,
+              p.product_scale,
+              p.product_vendor,
+              p.buy_price,
+              p.msrp
+          from {{ ref('stg_products') }} p
+          left join {{ ref('stg_productlines') }} pl on p.product_line = pl.product_line
+          """,
+  "models/dimensions/dim_employee.sql":
+          """
+          select
+              employee_id,
+              concat(first_name, ' ', last_name) as full_name,
+              job_title,
+              email,
+              office_code,
+              reports_to
+          from {{ ref('stg_employees') }}
+          """,
+  "models/dimensions/dim_office.sql":
+          """
+          select
+              office_code,
+              city,
+              state,
+              country,
+              territory
+          from {{ ref('stg_offices') }}
+          """,
+  "models/dimensions/dim_date.sql":
+          """
+          -- Sederhananya, kita mengambil unique dates dari tabel orders
+          select
+              distinct(order_date) as date_day,
+              year(order_date)     as year,
+              month(order_date)    as month,
+              quarter(order_date)  as quarter,
+              dayofweek(order_date) as day_of_week
+          from {{ ref('stg_orders') }}
+          """,
+  "models/marts/fct_order_lines.sql":
+          """
+          with order_details as (
+              select * from {{ ref('stg_orderdetails') }}
+          ),
+          orders as (
+              select * from {{ ref('stg_orders') }}
+          ),
+          dim_product as (
+              select * from {{ ref('dim_product') }}
+          ),
+          stg_customers as (
+              -- Kita menggunakan staging customers untuk mengambil relasi ke employee_id
+              select * from {{ ref('stg_customers') }}
+          ),
+          dim_employee as (
+              select * from {{ ref('dim_employee') }}
+          )
+
+          select
+              -- Keys
+              md5(od.order_id || '-' || od.product_code) as order_line_key,
+              od.order_id,
+              od.product_code,
+              o.customer_id,
+              o.order_date,
+              c.sales_rep_employee_id as employee_id,
+              e.office_code,
+
+              -- Measures
+              od.quantity_ordered,
+              od.price_each,
+              (od.quantity_ordered * od.price_each) as revenue,
+              p.buy_price,
+              (od.quantity_ordered * p.buy_price) as total_cost,
+              ((od.quantity_ordered * od.price_each) - (od.quantity_ordered * p.buy_price)) as gross_profit
+
+          from order_details od
+          join orders o on od.order_id = o.order_id
+          join dim_product p on od.product_code = p.product_code
+          join stg_customers c on o.customer_id = c.customer_id
+          join dim_employee e on c.sales_rep_employee_id = e.employee_id
+          """,
+  "models/dimensions/dim_customer.sql":
+          """
+          -- (Sama seperti sebelumnya, dimensi ini digunakan kembali / shared dimension)
+          select
+              customer_id,
+              customer_name,
+              contact_last_name,
+              contact_first_name,
+              city,
+              state,
+              country,
+              credit_limit
+          from {{ ref('stg_customers') }}
+          """,
+  "models/dimensions/dim_date.sql":
+          """
+          -- Kita menggabungkan semua tanggal unik baik dari order maupun payment
+          -- agar dimensi tanggal mencakup seluruh rentang waktu bisnis
+          with all_dates as (
+              select order_date as date_day from {{ ref('stg_orders') }}
+              union
+              select payment_date as date_day from {{ ref('stg_payments') }}
+          )
+          select
+              distinct(date_day) as date_day,
+              year(date_day)     as year,
+              month(date_day)    as month,
+              quarter(date_day)  as quarter,
+              dayname(date_day)  as day_name
+          from all_dates
+          """,
+  "models/marts/fct_payments.sql":
+          """
+          with payments as (
+              select * from {{ ref('stg_payments') }}
+          ),
+          dim_customer as (
+              select * from {{ ref('dim_customer') }}
+          )
+
+          select
+              -- Keys
+              md5(p.customer_id || '-' || p.check_number) as payment_key,
+              c.customer_id,
+              p.payment_date,
+
+              -- Degenerate Dimension
+              p.check_number,
+
+              -- Measure
+              p.amount
+
+          from payments p
+          -- Memastikan hanya pembayaran dari customer yang valid yang masuk ke fact table
+          join dim_customer c on p.customer_id = c.customer_id
+          """,
+  "models/marts/fct_sales_performance.sql":
+          """
+          with order_lines as (
+              select * from {{ ref('fct_order_lines') }}
+          ),
+
+          performance_snapshot as (
+              select
+                  employee_id,
+                  office_code,
+                  -- Membuat tanggal hari pertama di setiap bulan (month_date)
+                  date_trunc('month', order_date) as month_date,
+
+                  -- Aggregated Measures
+                  count(distinct order_id)    as order_count,
+                  count(distinct customer_id) as unique_customers,
+                  sum(quantity_ordered)       as total_units_sold,
+                  sum(revenue)                as total_revenue,
+                  sum(gross_profit)           as total_gross_profit,
+                  avg(revenue)                as avg_order_line_revenue
+
+              from order_lines
+              -- Pastikan kita hanya menghitung transaksi yang memiliki sales rep
+              where employee_id is not null
+              group by
+                  employee_id,
+                  office_code,
+                  date_trunc('month', order_date)
+          )
+
+          select
+              -- Generate Snapshot Key
+              md5(cast(employee_id as varchar) || '-' || cast(month_date as varchar)) as performance_key,
+
+              -- Dimensions
+              employee_id,
+              office_code,
+              month_date,
+
+              -- Measures
+              order_count,
+              unique_customers,
+              total_units_sold,
+              total_revenue,
+              total_gross_profit,
+              avg_order_line_revenue
+
+          from performance_snapshot
+          """
+}
